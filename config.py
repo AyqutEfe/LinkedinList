@@ -3,8 +3,8 @@
 LinkedIn scraper için yapılandırma ayarları
 """
 # Giriş bilgileri
-EMAIL = "azizmevlanaalim@outlook.com.tr"
-PASSWORD = "Aziz123*"
+EMAIL = input("Mailinizi Giriniz : ")
+PASSWORD = input("Şifrenizi Giriniz : ")
 
 # Veri dosyaları
 EXCEL_FILE = "Linkedinlist/Lnklst.xlsx"
