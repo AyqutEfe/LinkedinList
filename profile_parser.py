@@ -44,12 +44,17 @@ def extract_profile_info(driver):
                 name_element = driver.find_element(By.CSS_SELECTOR, selector)
                 profile_name = name_element.text.strip()
                 if profile_name:
-                    print(f"İsim bulundu: {profile_name}")
+                    print(f"👤 Profil İsmi: {profile_name}")
                     break
             except:
                 continue
 
+        if not profile_name:
+            print("⚠️ Profil ismi bulunamadı!")
+            profile_name = f"Bilinmeyen_{int(time.time())}"
+
         # Profil fotoğrafını almaya çalış - güncellenmiş seçiciler
+        print("🔍 Profil fotoğrafı aranıyor...")
         photo_selectors = [
             "img.pv-top-card-profile-picture__image",
             "div.pv-top-card-profile-picture img",
@@ -75,7 +80,6 @@ def extract_profile_info(driver):
                 photo_url = profile_photo.get_attribute("src")
 
                 if photo_url and not photo_url.startswith("data:"):
-                    print(f"Profil fotoğrafı URL'si bulundu: {photo_url}")
                     profile_photo_path = download_profile_photo(photo_url, driver.current_url)
                     if profile_photo_path:
                         break
@@ -84,59 +88,51 @@ def extract_profile_info(driver):
 
         # Seçicilerle başarısız olursa, tüm img etiketlerini kontrol et
         if not profile_photo_path:
-            try:
-                print("Standart seçiciler başarısız oldu, tüm resimler taranıyor...")
-                all_images = driver.find_elements(By.TAG_NAME, "img")
-                for img in all_images:
-                    try:
-                        alt_text = img.get_attribute("alt") or ""
-                        src = img.get_attribute("src") or ""
+            all_images = driver.find_elements(By.TAG_NAME, "img")
+            for img in all_images:
+                try:
+                    alt_text = img.get_attribute("alt") or ""
+                    src = img.get_attribute("src") or ""
 
-                        # Profil fotoğrafı olabilecek görüntüleri filtrele
-                        if ((profile_name and profile_name.lower() in alt_text.lower()) or
-                            "profil" in alt_text.lower() or
-                            "profile" in alt_text.lower() or
-                            "avatar" in alt_text.lower() or
-                            "photo" in alt_text.lower()) and \
-                                src and not src.startswith("data:") and \
-                                ("linkedin.com" in src or "licdn.com" in src):
+                    # Profil fotoğrafı olabilecek görüntüleri filtrele
+                    if ((profile_name and profile_name.lower() in alt_text.lower()) or
+                        "profil" in alt_text.lower() or
+                        "profile" in alt_text.lower() or
+                        "avatar" in alt_text.lower() or
+                        "photo" in alt_text.lower()) and \
+                            src and not src.startswith("data:") and \
+                            ("linkedin.com" in src or "licdn.com" in src):
 
-                            print(f"Alternatif profil fotoğrafı bulundu: {src}")
-                            profile_photo_path = download_profile_photo(src, driver.current_url)
-                            if profile_photo_path:
-                                break
-                    except:
-                        continue
-            except Exception as e:
-                print(f"Alternatif fotoğraf arama hatası: {e}")
+                        profile_photo_path = download_profile_photo(src, driver.current_url)
+                        if profile_photo_path:
+                            break
+                except:
+                    continue
 
         # Son çare olarak JavaScript ile doğrudan fotoğrafı almayı dene
         if not profile_photo_path:
-            try:
-                print("JavaScript ile fotoğraf URL'si aranıyor...")
-                # LinkedIn'in fotoğraf URL'lerini genellikle sakladığı yerlerde ara
-                js_photo_urls = driver.execute_script("""
-                    var urls = [];
-                    var images = document.querySelectorAll('img');
-                    for (var i = 0; i < images.length; i++) {
-                        if (images[i].src && images[i].src.includes('profile-displayphoto')) {
-                            urls.push(images[i].src);
-                        }
+            js_photo_urls = driver.execute_script("""
+                var urls = [];
+                var images = document.querySelectorAll('img');
+                for (var i = 0; i < images.length; i++) {
+                    if (images[i].src && images[i].src.includes('profile-displayphoto')) {
+                        urls.push(images[i].src);
                     }
-                    return urls;
-                """)
+                }
+                return urls;
+            """)
 
-                if js_photo_urls and len(js_photo_urls) > 0:
-                    for url in js_photo_urls:
-                        print(f"JavaScript ile bulunan fotoğraf URL'si: {url}")
-                        profile_photo_path = download_profile_photo(url, driver.current_url)
-                        if profile_photo_path:
-                            break
-            except Exception as e:
-                print(f"JavaScript ile fotoğraf arama hatası: {e}")
+            if js_photo_urls and len(js_photo_urls) > 0:
+                for url in js_photo_urls:
+                    profile_photo_path = download_profile_photo(url, driver.current_url)
+                    if profile_photo_path:
+                        break
+
+        if not profile_photo_path:
+            print("❌ Profil fotoğrafı bulunamadı.")
 
     except Exception as e:
-        print(f"❌ Profil bilgisi çekme hatası: {e}")
+        print(f"❌ Profil bilgisi çekme hatası oluştu.")
 
     return profile_name, profile_photo_path
 

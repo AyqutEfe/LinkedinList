@@ -14,26 +14,29 @@ def download_profile_photo(image_url, profile_link):
     try:
         # Profil fotoğrafı kontrolleri
         if not image_url or "data:image" in image_url:
-            print(f"Geçersiz resim URL'si veya data URI: {image_url}")
+            print("❌ Profil fotoğrafı bulunamadı.")
             return ""
 
         # LinkedIn'in varsayılan/boş profil fotoğraflarını kontrol et
-        # Örnek: varsayılan profil fotoğraflarının URL'lerinde genellikle belirli desenler olur
+        # URL'de bulunan belirli terimler ve desenler
         default_photo_indicators = [
             "ghost-person",
             "blank-profile-picture",
             "default-avatar",
             "no-profile",
             "iprofile_",
-            "anonymous-user"
+            "anonymous-user",
+            "person-placeholder"
         ]
 
-        if any(indicator in image_url.lower() for indicator in default_photo_indicators):
-            print(f"Varsayılan profil fotoğrafı tespit edildi, indirme işlemi yapılmıyor: {image_url}")
+        # Varsayılan profil fotoğrafı ve boyutları kontrol et
+        if any(indicator in image_url.lower() for indicator in
+               default_photo_indicators) or "shrink_100_100" in image_url:
+            print("❌ Profil fotoğrafı bulunamadı (varsayılan fotoğraf tespit edildi).")
             return ""
 
-        # Debug için URL'yi yazdır
-        print(f"İndirilmeye çalışılıyor: {image_url}")
+        # Profil fotoğrafı indiriliyor mesajı
+        print("🔄 Profil fotoğrafı indiriliyor...")
 
         # URL'den geçersiz karakterleri temizle
         clean_url = urllib.parse.unquote(profile_link)
@@ -52,8 +55,6 @@ def download_profile_photo(image_url, profile_link):
         file_name = f"{profile_name}.jpg"  # LinkedIn fotoğrafları genellikle JPG formatındadır
         file_path = os.path.join(config.PHOTOS_DIR, file_name)
 
-        print(f"Kaydedilecek konum: {file_path}")
-
         # Fotoğrafı indir
         try:
             response = requests.get(
@@ -69,40 +70,37 @@ def download_profile_photo(image_url, profile_link):
                 # İçerik türünü kontrol et
                 content_type = response.headers.get('Content-Type', '')
                 if 'image' not in content_type:
-                    print(f"❌ İndirilen içerik bir resim değil: {content_type}")
+                    print("❌ Profil fotoğrafı bulunamadı (geçersiz içerik türü).")
+                    return ""
+
+                # Resmin içeriğini alıp analiz et
+                image_data = response.content
+
+                # Dosya boyutu kontrolü - çok küçük dosyalar genellikle default ikonlar olabilir
+                if len(image_data) < 5000:  # 5KB'dan küçük
+                    print("❌ Profil fotoğrafı bulunamadı (dosya boyutu çok küçük).")
                     return ""
 
                 with open(file_path, 'wb') as f:
-                    for chunk in response.iter_content(1024):
-                        f.write(chunk)
+                    f.write(image_data)
 
                 # Dosya boyutunu kontrol et
                 file_size = os.path.getsize(file_path)
                 if file_size > 100:  # 100 byte'dan büyük dosyalar geçerli kabul edilir
-                    # Varsayılan profil fotoğrafları genellikle belirli bir boyut aralığındadır
-                    if 100 < file_size < 5000:  # Bu değerleri LinkedIn'in varsayılan fotoğraf boyutlarına göre ayarlayın
-                        # Ekstra bir kontrol olarak basit bir imza kontrolü yapabilirsiniz
-                        # Bu değerler LinkedIn'in varsayılan fotoğraflarına göre ayarlanmalıdır
-                        with open(file_path, 'rb') as f:
-                            file_signature = f.read(50)  # İlk 50 byte'ı oku
-                            # Varsayılan profil fotoğraflarının imzasını karşılaştır
-                            # Bu örnek, gerçek duruma göre değiştirilmelidir
-                            # Gerçek bir uygulama için hash değerleri veya daha detaylı imza kontrolü düşünülebilir
-
-                    print(f"✅ Fotoğraf başarıyla kaydedildi ({file_size} bytes): {file_path}")
+                    print(f"✅ Profil fotoğrafı başarıyla indirildi.")
                     return file_path
                 else:
-                    print(f"❌ İndirilen dosya çok küçük ({file_size} bytes), geçersiz olabilir")
+                    print("❌ Profil fotoğrafı bulunamadı (geçersiz dosya).")
                     os.remove(file_path)  # Geçersiz dosyayı sil
                     return ""
             else:
-                print(f"❌ İndirme başarısız: HTTP {response.status_code}")
+                print("❌ Profil fotoğrafı indirilemedi.")
                 return ""
 
         except requests.exceptions.RequestException as e:
-            print(f"❌ İndirme isteği hatası: {e}")
+            print("❌ Profil fotoğrafı indirilemedi (bağlantı hatası).")
             return ""
 
     except Exception as e:
-        print(f"❌ Profil fotoğrafı indirme hatası: {e}")
+        print("❌ Profil fotoğrafı işlenirken hata oluştu.")
         return ""
